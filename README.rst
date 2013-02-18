@@ -43,3 +43,11 @@ Client::
     a86c4d19c567400a917e9574231ae1ebdeb51653
     812807330e2398d90a998aa98ce6851a9d849886
     d2e886096ebb7c7dfa9733b639a298b45acf92fe
+
+
+Testing
+=======
+
+To run the test cases, simply install and run ``tests.py``::
+
+    $ python tests.py
