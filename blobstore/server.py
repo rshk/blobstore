@@ -3,11 +3,22 @@
 import hashlib
 import optparse
 import os
+import sys
+
 import zerorpc
 
+DEBUG = False
 
 
-class NotFound(Exception): pass
+def _log(message):
+    if not DEBUG:
+        return
+    sys.stderr.write(message)
+    sys.stderr.write("\n")
+
+
+class NotFound(Exception):
+    pass
 
 
 class StorageRPC(object):
@@ -16,6 +27,7 @@ class StorageRPC(object):
 
     def store(self, blob):
         blob_id = hashlib.sha1(blob).hexdigest()
+        _log("STORE {}".format(blob_id))
         blob_path = self._get_blob_path(blob_id)
         if not os.path.exists(blob_path):
             with self._open(blob_path, 'wb') as f:
@@ -23,6 +35,7 @@ class StorageRPC(object):
         return blob_id
 
     def retrieve(self, blob_id):
+        _log("RETRIEVE {}".format(blob_id))
         blob_path = self._get_blob_path(blob_id)
         try:
             with self._open(blob_path, 'rb') as f:
@@ -32,6 +45,7 @@ class StorageRPC(object):
                 "Unable to retrieve blob with id: {}".format(blob_id))
 
     def delete(self, blob_id):
+        _log("DELETE {}".format(blob_id))
         try:
             os.remove(self._get_blob_path(blob_id))
         except OSError:
@@ -40,6 +54,7 @@ class StorageRPC(object):
 
     @zerorpc.stream
     def list(self):
+        _log("LIST")
         ## ok, now go and figure out the list of stored blobs :P
         for l1dir in os.listdir(self.storage_dir):
             l1dir_path = os.path.join(self.storage_dir, l1dir)
@@ -58,19 +73,37 @@ class StorageRPC(object):
         return open(name, mode)
 
 
-
 def main():
-    parser = optparse.OptionParser()
+    from . import DEFAULT_PORT, DEFAULT_ADDR
+
+    parser = optparse.OptionParser(
+        usage="%prog [options] <command> [args..]"
+    )
     parser.disable_interspersed_args()
-    parser.add_option("--port", action='store', dest='listen_port')
-    parser.add_option("--address", action='store', dest='listen_address')
-    parser.add_option("--storage", action='store', dest='storage_dir')
+    parser.add_option("--storage", action='store', dest='storage_dir',
+                      metavar="DIRECTORY",
+                      help="Base directory for the blobs storage. If it does"
+                           "not exist, it will be created. Required.")
+    parser.add_option("--port", action='store', dest='listen_port',
+                      metavar="PORT",
+                      help="TCP port on which to listen for connections. "
+                           "Defaults to {port}".format(port=DEFAULT_PORT))
+    parser.add_option("--address", action='store', dest='listen_address',
+                      metavar="ADDRESS",
+                      help="IP address on which to listen for connections. "
+                           "Defaults to {addr}".format(addr=DEFAULT_ADDR))
+    parser.add_option("--debug", action='store_true', dest='enable_debug',
+                      default=False,
+                      help="Whether to enable debugging output.")
     opts, args = parser.parse_args()
 
-    # Setup the storage on folder..
+    if opts.storage_dir is None:
+        sys.stderr.write(
+            "You must specify a storage directory using the --storage "
+            "argument.\n"
+            "See --help for more information.")
+        return 1
 
-    assert opts.storage_dir is not None
-    from . import DEFAULT_PORT, DEFAULT_ADDR
     listen_port = opts.listen_port or DEFAULT_PORT
     listen_address = opts.listen_address or DEFAULT_ADDR
 
@@ -79,7 +112,13 @@ def main():
 
     print "Listening on {}:{}".format(listen_address, listen_port)
 
-    s.run()
+    try:
+        s.run()
+    except KeyboardInterrupt:
+        print "Server terminated."
+
+    return 0
+
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
