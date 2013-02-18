@@ -4,7 +4,28 @@
 
 import optparse
 import sys
+
 import zerorpc
+
+
+COMMANDS_HELP = """\
+store [<filename>]
+    Stores the specified file. If no filename is passed or the filename
+    is '-', data will be read from standard input.
+    Prints the resulting blob_id on the standard output.
+
+retrieve <blob_id> [<filename>]
+    Retrieves the object specified by <blob_id> and stores it inside
+    <filename>. If no <filename> was specified or <filename> is '-',
+    write the object to standard output instead.
+
+delete <blob_id>
+    Silently deletes the object with specified id.
+
+list
+    Prints a list of stored objects ids.
+"""
+
 
 def main():
     parser = optparse.OptionParser()
@@ -22,17 +43,17 @@ def main():
 
     command = args[0]
 
-    if command == 'store':
+    if command == 'help':
+        print COMMANDS_HELP
+
+    elif command == 'store':
         try:
             filename = args[1]
-            if filename == '-':
-                filename = None
         except IndexError:
             filename = None
 
-        if filename is None:
+        if (filename is None) or (filename == '-'):
             blob = sys.stdin.read()
-
         else:
             with open(filename, 'rb') as f:
                 blob = f.read()
@@ -40,16 +61,45 @@ def main():
         print client.store(blob)
 
     elif command == 'retrieve':
-        blob_id = args[1]
-        sys.stdout.write(client.retrieve(blob_id))
+        try:
+            blob_id = args[1]
+        except IndexError:
+            sys.stderr.write("Usage: retrieve <blob_id> [<filename>]")
+            return 1
+
+        try:
+            filename = args[2]
+        except IndexError:
+            filename = None
+
+        if (filename is None) or (filename == '-'):
+            sys.stdout.write(client.retrieve(blob_id))
+        else:
+            with open(filename, 'wb') as f:
+                f.write(client.retrieve(blob_id))
 
     elif command == 'delete':
-        blob_id = args[1]
+        try:
+            blob_id = args[1]
+        except IndexError:
+            sys.stderr.write("Usage: delete <blob_id>")
+            return 1
+
         client.delete(blob_id)
 
     elif command == 'list':
         for blob_id in client.list():
             print blob_id
 
+    else:
+        sys.stderr.write(
+            "No such command: {command}\n"
+            "See 'help' for more information on commands.\n"
+            "".format(command=command))
+        return 1
+
+    return 0
+
+
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
