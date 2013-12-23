@@ -51,3 +51,9 @@ Testing
 To run the test cases, simply install and run ``tests.py``::
 
     $ python tests.py
+
+
+.. image:: https://d2weczhvl823v0.cloudfront.net/rshk/blobstore/trend.png
+   :alt: Bitdeli badge
+   :target: https://bitdeli.com/free
+
